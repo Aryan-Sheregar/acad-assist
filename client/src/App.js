@@ -4,17 +4,29 @@ import "./App.css";
 
 function App() {
   const [userData, setUserData] = useState({ userId: "", name: "", email: "" });
-  const [file, setFile] = useState(null);
+  const [timetableFile, setTimetableFile] = useState(null);
+  const [calendarFile, setCalendarFile] = useState(null); // New: Academic calendar file
+  const [syllabusFile, setSyllabusFile] = useState(null); // New: Syllabus file
   const [syllabusContent, setSyllabusContent] = useState("");
   const [recommendations, setRecommendations] = useState([]);
+  const [syllabusRecommendations, setSyllabusRecommendations] = useState([]); // New: Syllabus-based recommendations
+  const [leaveSuggestions, setLeaveSuggestions] = useState([]); // New: Leave optimization suggestions
   const [message, setMessage] = useState("");
 
   const handleUserChange = (e) => {
     setUserData({ ...userData, [e.target.name]: e.target.value });
   };
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+  const handleTimetableChange = (e) => {
+    setTimetableFile(e.target.files[0]);
+  };
+
+  const handleCalendarChange = (e) => {
+    setCalendarFile(e.target.files[0]);
+  };
+
+  const handleSyllabusChange = (e) => {
+    setSyllabusFile(e.target.files[0]);
   };
 
   const addUser = async () => {
@@ -25,17 +37,17 @@ function App() {
       );
       setMessage(res.data.message);
     } catch (error) {
-      setMessage("Error: " + error.response.data.error);
+      setMessage("Error: " + (error.response?.data.error || error.message));
     }
   };
 
   const uploadTimetable = async () => {
-    if (!file || !userData.userId) {
-      setMessage("Please select a file and provide a User ID");
+    if (!timetableFile || !userData.userId) {
+      setMessage("Please select a timetable file and provide a User ID");
       return;
     }
     const formData = new FormData();
-    formData.append("timetable", file);
+    formData.append("timetable", timetableFile);
     formData.append("userId", userData.userId);
 
     try {
@@ -48,7 +60,53 @@ function App() {
       );
       setMessage(res.data.message);
     } catch (error) {
-      setMessage("Error: " + error.response.data.error);
+      setMessage("Error: " + (error.response?.data.error || error.message));
+    }
+  };
+
+  const uploadAcademicCalendar = async () => {
+    if (!calendarFile || !userData.userId) {
+      setMessage("Please select a calendar file and provide a User ID");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("calendar", calendarFile);
+    formData.append("userId", userData.userId);
+
+    try {
+      const res = await axios.post(
+        "http://localhost:5001/api/files/upload-calendar",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      setMessage(res.data.message);
+    } catch (error) {
+      setMessage("Error: " + (error.response?.data.error || error.message));
+    }
+  };
+
+  const uploadSyllabus = async () => {
+    if (!syllabusFile || !userData.userId) {
+      setMessage("Please select a syllabus file and provide a User ID");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("syllabus", syllabusFile);
+    formData.append("userId", userData.userId);
+
+    try {
+      const res = await axios.post(
+        "http://localhost:5001/api/files/upload-syllabus",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      setMessage(res.data.message);
+    } catch (error) {
+      setMessage("Error: " + (error.response?.data.error || error.message));
     }
   };
 
@@ -63,7 +121,45 @@ function App() {
       setRecommendations(res.data.recommendations);
       setMessage("Recommendations fetched successfully");
     } catch (error) {
-      setMessage("Error: " + error.response.data.error);
+      setMessage("Error: " + (error.response?.data.error || error.message));
+    }
+  };
+
+  const getSyllabusRecommendations = async () => {
+    if (!userData.userId) {
+      setMessage("Please provide a User ID");
+      return;
+    }
+    try {
+      const res = await axios.post(
+        "http://localhost:5001/api/recommendations/syllabus",
+        {
+          userId: userData.userId,
+        }
+      );
+      setSyllabusRecommendations(res.data.recommendations);
+      setMessage("Syllabus-based recommendations fetched successfully");
+    } catch (error) {
+      setMessage("Error: " + (error.response?.data.error || error.message));
+    }
+  };
+
+  const getLeaveOptimization = async () => {
+    if (!userData.userId) {
+      setMessage("Please provide a User ID");
+      return;
+    }
+    try {
+      const res = await axios.post(
+        "http://localhost:5001/api/optimization/leave",
+        {
+          userId: userData.userId,
+        }
+      );
+      setLeaveSuggestions(res.data.suggestions);
+      setMessage("Leave optimization suggestions fetched successfully");
+    } catch (error) {
+      setMessage("Error: " + (error.response?.data.error || error.message));
     }
   };
 
@@ -87,13 +183,27 @@ function App() {
       {/* Upload Timetable */}
       <div>
         <h2>Upload Timetable</h2>
-        <input type="file" onChange={handleFileChange} />
+        <input type="file" onChange={handleTimetableChange} />
         <button onClick={uploadTimetable}>Upload</button>
       </div>
 
-      {/* Get Recommendations */}
+      {/* Upload Academic Calendar */}
       <div>
-        <h2>Get Recommendations</h2>
+        <h2>Upload Academic Calendar</h2>
+        <input type="file" onChange={handleCalendarChange} />
+        <button onClick={uploadAcademicCalendar}>Upload</button>
+      </div>
+
+      {/* Upload Syllabus */}
+      <div>
+        <h2>Upload Course Syllabus</h2>
+        <input type="file" onChange={handleSyllabusChange} />
+        <button onClick={uploadSyllabus}>Upload</button>
+      </div>
+
+      {/* Get Manual Recommendations */}
+      <div>
+        <h2>Get Manual Recommendations</h2>
         <input
           placeholder="Enter syllabus content (e.g., Physics Chapter 1)"
           value={syllabusContent}
@@ -107,6 +217,40 @@ function App() {
                 <a href={rec.url} target="_blank" rel="noopener noreferrer">
                   {rec.title}
                 </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Get Syllabus-Based Recommendations */}
+      <div>
+        <h2>Get Syllabus-Based Recommendations</h2>
+        <button onClick={getSyllabusRecommendations}>
+          Fetch from Syllabus
+        </button>
+        {syllabusRecommendations.length > 0 && (
+          <ul>
+            {syllabusRecommendations.map((rec, index) => (
+              <li key={index}>
+                <a href={rec.url} target="_blank" rel="noopener noreferrer">
+                  {rec.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Get Leave Optimization */}
+      <div>
+        <h2>Leave Optimization</h2>
+        <button onClick={getLeaveOptimization}>Get Suggestions</button>
+        {leaveSuggestions.length > 0 && (
+          <ul>
+            {leaveSuggestions.map((suggestion, index) => (
+              <li key={index}>
+                {suggestion.date} - {suggestion.suggestion}
               </li>
             ))}
           </ul>
