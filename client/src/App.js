@@ -5,12 +5,13 @@ import "./App.css";
 function App() {
   const [userData, setUserData] = useState({ userId: "", name: "", email: "" });
   const [timetableFile, setTimetableFile] = useState(null);
-  const [calendarFile, setCalendarFile] = useState(null); // New: Academic calendar file
-  const [syllabusFile, setSyllabusFile] = useState(null); // New: Syllabus file
+  const [calendarFile, setCalendarFile] = useState(null);
+  const [syllabusFile, setSyllabusFile] = useState(null);
   const [syllabusContent, setSyllabusContent] = useState("");
   const [recommendations, setRecommendations] = useState([]);
-  const [syllabusRecommendations, setSyllabusRecommendations] = useState([]); // New: Syllabus-based recommendations
-  const [leaveSuggestions, setLeaveSuggestions] = useState([]); // New: Leave optimization suggestions
+  const [syllabusRecommendations, setSyllabusRecommendations] = useState([]);
+  const [leaveSuggestions, setLeaveSuggestions] = useState([]);
+  const [timetableSummary, setTimetableSummary] = useState(null); // New: Timetable summary
   const [message, setMessage] = useState("");
 
   const handleUserChange = (e) => {
@@ -163,6 +164,25 @@ function App() {
     }
   };
 
+  const getTimetableSummary = async () => {
+    if (!userData.userId) {
+      setMessage("Please provide a User ID");
+      return;
+    }
+    try {
+      const res = await axios.post(
+        "http://localhost:5001/api/files/timetable-summary",
+        {
+          userId: userData.userId,
+        }
+      );
+      setTimetableSummary(res.data.summary);
+      setMessage("Timetable summary fetched successfully");
+    } catch (error) {
+      setMessage("Error: " + (error.response?.data.error || error.message));
+    }
+  };
+
   return (
     <div className="App">
       <h1>Study App</h1>
@@ -185,6 +205,22 @@ function App() {
         <h2>Upload Timetable</h2>
         <input type="file" onChange={handleTimetableChange} />
         <button onClick={uploadTimetable}>Upload</button>
+        <button onClick={getTimetableSummary}>Get Timetable Summary</button>
+        {timetableSummary && (
+          <div>
+            <h3>Timetable Summary (Weekly Class Count)</h3>
+            <ul>
+              {Object.entries(timetableSummary).map(
+                ([subject, count], index) => (
+                  <li key={index}>
+                    {subject}: {count} {count === 1 ? "class" : "classes"} per
+                    week
+                  </li>
+                )
+              )}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Upload Academic Calendar */}
