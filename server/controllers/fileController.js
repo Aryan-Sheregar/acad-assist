@@ -1,10 +1,24 @@
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { createWorker } = require("tesseract.js");
+const { ImageAnnotatorClient } = require("@google-cloud/vision");
 const Timetable = require("../models/Timetable");
 const AcademicCalendar = require("../models/AcademicCalendar");
 const Syllabus = require("../models/Syllabus");
+
+// Initialize Google Vision client
+// Initialize Google Vision client with explicit credentials
+const visionClient = new ImageAnnotatorClient({
+  keyFilename: path.join(__dirname, "../GV.json"), // Adjust path as needed
+});
+
+// Test the client on startup (optional but recommended)
+visionClient
+  .textDetection(
+    "https://storage.googleapis.com/cloud-samples-data/vision/ocr/sign.jpg"
+  )
+  .then(() => console.log("Google Vision API connection successful"))
+  .catch((err) => console.error("Vision API connection failed:", err.message));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -15,10 +29,21 @@ const storage = multer.diskStorage({
   },
 });
 
+// Google Vision OCR function
+async function performOCR(imagePath) {
+  try {
+    const [result] = await visionClient.textDetection(imagePath);
+    const detections = result.textAnnotations;
+    return detections && detections.length > 0 ? detections[0].description : "";
+  } catch (error) {
+    console.error("Vision API Error:", error);
+    throw new Error("OCR processing failed");
+  }
+}
+
 const uploadTimetableMiddleware = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    // Accept image files only
     const filetypes = /jpeg|jpg|png|gif|bmp|webp/;
     const extname = filetypes.test(
       path.extname(file.originalname).toLowerCase()
@@ -31,20 +56,131 @@ const uploadTimetableMiddleware = multer({
   },
 }).single("timetable");
 
-const uploadCalendarMiddleware = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    const filetypes = /pdf|txt|doc|docx/;
-    const extname = filetypes.test(
-      path.extname(file.originalname).toLowerCase()
-    );
-    const mimetype = filetypes.test(file.mimetype);
-    if (extname && mimetype) {
-      return cb(null, true);
+const uploadCalendarMiddleware = (req, res, next) => {
+  const multerMiddleware = multer({
+    storage,
+    fileFilter: (req, file, cb) => {
+      const filetypes = /jpeg|jpg|png|pdf|txt|doc|docx/;
+      const extname = filetypes.test(
+        path.extname(file.originalname).toLowerCase()
+      );
+      const mimetype = filetypes.test(file.mimetype);
+      if (extname && mimetype) {
+        return cb(null, true);
+      }
+      cb(
+        new Error(
+          "Only image (JPEG, PNG) or document (PDF, TXT, DOC, DOCX) files are allowed!"
+        )
+      );
+    },
+  }).single("calendar");
+
+  multerMiddleware(req, res, async (err) => {
+    if (err) {
+      return next(err);
     }
-    cb(new Error("Only PDF, TXT, DOC, or DOCX files are allowed!"));
-  },
-}).single("calendar");
+
+    if (!req.file) {
+      return next(new Error("No file uploaded"));
+    }
+
+    if (req.file.mimetype.startsWith("image/")) {
+      try {
+        const text = await performOCR(req.file.path);
+        console.log("\n📄 Raw OCR Text:\n", text);
+
+        const lines = text
+          .split("\n")
+          .map((line) => line.replace(/[^\x00-\x7F]/g, "").trim())
+          .filter((line) => line !== "");
+
+        const calendarData = [];
+        let skipHeader = true;
+        let pendingDate = null;
+
+        for (const line of lines) {
+          console.log("🔍 Processing Line:", line);
+
+          if (skipHeader) {
+            if (
+              line.toLowerCase().includes("date") ||
+              line.toLowerCase().includes("day")
+            ) {
+              skipHeader = false;
+              continue;
+            }
+          }
+
+          // Case 1: Line contains both date and day (e.g., "31.03.2025 Monday")
+          const dateWithDayMatch = line.match(/(\d{2}\.\d{2}\.\d{4})\s+(\w+)/);
+          if (dateWithDayMatch) {
+            const entry = {
+              date: dateWithDayMatch[1],
+              day: dateWithDayMatch[2],
+            };
+
+            // Check if there's any additional text (holiday description)
+            const remainingText = line.replace(dateWithDayMatch[0], "").trim();
+            if (remainingText) {
+              entry.holiday = remainingText;
+            }
+
+            calendarData.push(entry);
+            pendingDate = null; // Reset any pending date
+            continue;
+          }
+
+          // Case 2: Line contains only a date (e.g., "14.01.2025")
+          const dateOnlyMatch = line.match(/^(\d{2}\.\d{2}\.\d{4})$/);
+          if (dateOnlyMatch) {
+            pendingDate = dateOnlyMatch[1];
+            continue;
+          }
+
+          // Case 3: Line contains only a day name and we have a pending date
+          const dayOnlyMatch = line.match(/^(\w+)$/);
+          if (pendingDate && dayOnlyMatch) {
+            calendarData.push({
+              date: pendingDate,
+              day: dayOnlyMatch[1],
+            });
+            pendingDate = null;
+            continue;
+          }
+
+          // Original parsing logic as fallback
+          const parts = line
+            .split(/\s{2,}|[\|\t\-]+/)
+            .map((part) => part.trim())
+            .filter((part) => part !== "");
+
+          if (parts.length >= 2) {
+            const entry = {
+              date: parts[0],
+              day: parts[1],
+            };
+
+            if (parts.length >= 3) {
+              entry.holiday = parts.slice(2).join(" ");
+            }
+
+            calendarData.push(entry);
+            pendingDate = null; // Reset any pending date
+          }
+        }
+
+        console.log("✅ Extracted Calendar Data:", calendarData);
+        req.calendarData = calendarData;
+        next();
+      } catch (ocrErr) {
+        next(new Error(`OCR processing failed: ${ocrErr.message}`));
+      }
+    } else {
+      next();
+    }
+  });
+};
 
 const uploadSyllabusMiddleware = multer({
   storage,
@@ -61,65 +197,10 @@ const uploadSyllabusMiddleware = multer({
   },
 }).single("syllabus");
 
-exports.uploadTimetable = async (req, res) => {
-  uploadTimetableMiddleware(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-
-    try {
-      const { userId } = req.body;
-      const imagePath = req.file.path;
-
-      console.log("Uploaded image path:", imagePath);
-
-      // Ensure upload directory exists
-      const uploadDir = path.dirname(imagePath);
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-        console.log("Created uploads directory:", uploadDir);
-      }
-
-      // Check if file exists before proceeding
-      if (!fs.existsSync(imagePath)) {
-        return res.status(500).json({
-          error: "Image upload failed - file not found",
-          imagePath,
-        });
-      }
-
-      // OCR the image using Tesseract.js v3.x
-      console.log("Starting OCR process...");
-      const worker = await createWorker("eng");
-      const {
-        data: { text },
-      } = await worker.recognize(imagePath);
-      await worker.terminate();
-
-      console.log("OCR Text:", text);
-
-      // Parse the OCR text
-      const timetableData = parseTimetable(text);
-
-      // Save to MongoDB
-      const timetable = new Timetable({
-        userId,
-        filePath: imagePath,
-        timetableData,
-      });
-      await timetable.save();
-
-      res.status(201).json({
-        message: "Timetable uploaded and processed successfully",
-        timetableData,
-      });
-    } catch (error) {
-      console.error("Error in uploadTimetable:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-};
-
+// Enhanced timetable parser for Vision API output
 const parseTimetable = (text) => {
+  console.log("Raw timetable text:", text);
+
   const days = [
     "Monday",
     "Tuesday",
@@ -127,135 +208,200 @@ const parseTimetable = (text) => {
     "Thursday",
     "Friday",
     "Saturday",
-    "Sunday",
   ];
-  const timeSlots = [
-    "09:00-09:55",
-    "09:00 To 09:55",
-    "10:00-10:55",
-    "10:00 To 10:55",
-    "11:00-11:55",
-    "11:00 To 11:55",
-    "12:00-12:55",
-    "12:00 To 12:55",
-    "01:00-01:55",
-    "01:00 To 01:55",
-    "02:00-02:55",
-    "02:00 To 02:55",
-    "03:00-03:55",
-    "03:00 To 03:55",
-    "04:00-05:30",
-    "04:00 To 05:30",
-  ];
+
+  // More flexible regex patterns
+  const timeRegex = /(\d{1,2}:\d{2})\s*(?:TO|To|to|-)\s*(\d{1,2}:\d{2})/i;
+  const courseRegex = /([A-Z]{2,4})\s*(\d{3})(?:\s*\(?([A-Z]\s*\d+)\)?)?/g;
 
   const timetable = {};
-  let currentDay = null;
-
   const lines = text
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line);
+    .map((l) => l.trim())
+    .filter((l) => l);
 
-  console.log("Parsed lines:", lines);
+  console.log("Processed lines:", lines);
 
-  // Initialize days to ensure we have a structure even if parsing is imperfect
+  // Initialize structure for all days
   days.forEach((day) => {
     timetable[day] = {};
   });
 
-  // First, try to identify the days and the time structure
-  lines.forEach((line) => {
-    // Check if the line is a day name
-    const dayMatch = days.find((day) =>
-      line.toLowerCase().includes(day.toLowerCase())
-    );
-    if (dayMatch) {
-      currentDay = dayMatch;
-      console.log("Found day:", currentDay);
+  // Extract time slots first
+  const timeSlots = [];
+  for (const line of lines) {
+    const timeMatch = line.match(timeRegex);
+    if (timeMatch) {
+      let startTime = timeMatch[1];
+      let endTime = timeMatch[2];
+
+      // Standardize time format (convert 01:00 to 13:00 for afternoon slots)
+      if (startTime.startsWith("0") && parseInt(startTime.split(":")[0]) > 0) {
+        const hourPart = parseInt(startTime.split(":")[0]);
+        const minutePart = startTime.split(":")[1];
+        startTime = `${hourPart + 12}:${minutePart}`;
+      }
+
+      if (endTime.startsWith("0") && parseInt(endTime.split(":")[0]) > 0) {
+        const hourPart = parseInt(endTime.split(":")[0]);
+        const minutePart = endTime.split(":")[1];
+        endTime = `${hourPart + 12}:${minutePart}`;
+      }
+
+      timeSlots.push(`${startTime}-${endTime}`);
     }
-    // Check if the line contains a time slot and course code
-    else if (currentDay) {
-      for (const slot of timeSlots) {
-        if (line.includes(slot)) {
-          // Look for course codes like CSE 455, SEC 136, MGT 275, VAC 109
-          const courseMatch = line.match(
-            /(CSE|SEC|MGT|VAC)\s*\d+(\s*\(\w+\s*\d+\))?/i
+  }
+
+  console.log("Found time slots:", timeSlots);
+
+  let currentDay = null;
+  let currentSlotIndex = -1;
+
+  for (const line of lines) {
+    // Check if line is a day
+    if (days.includes(line)) {
+      currentDay = line;
+      currentSlotIndex = 0;
+      console.log(`Processing day: ${currentDay}`);
+      continue;
+    }
+
+    // Skip time slot lines - we've already processed them
+    if (line.match(timeRegex)) {
+      continue;
+    }
+
+    // Skip lines with just numbers (row labels)
+    if (/^\d+$/.test(line)) {
+      continue;
+    }
+
+    // Process course information for current day
+    if (currentDay) {
+      // Reset course regex lastIndex
+      courseRegex.lastIndex = 0;
+
+      const courses = [];
+      let match;
+      while ((match = courseRegex.exec(line)) !== null) {
+        const courseCode = `${match[1]} ${match[2]}`;
+        const room = match[3] || "";
+        courses.push(`${courseCode}${room ? `(${room})` : ""}`);
+      }
+
+      if (courses.length > 0) {
+        if (currentSlotIndex < timeSlots.length) {
+          const timeSlot = timeSlots[currentSlotIndex];
+          timetable[currentDay][timeSlot] = courses.join(", ");
+          console.log(
+            `Added to ${currentDay} at ${timeSlot}: ${courses.join(", ")}`
           );
-          if (courseMatch) {
-            const course = courseMatch[0].replace(/\s+/g, " ");
-            timetable[currentDay][slot] = course;
-            console.log(`Found course for ${currentDay} at ${slot}: ${course}`);
-          }
+          currentSlotIndex++;
         }
       }
     }
-  });
-
-  // Fallback: If the above approach doesn't find much data, try to extract course codes
-  // and match them with day/time based on positioning in the text
-  let coursesFound = 0;
-  for (const day in timetable) {
-    coursesFound += Object.keys(timetable[day]).length;
   }
 
-  if (coursesFound < 5) {
-    // Arbitrary threshold to determine if main parsing worked
-    console.log(
-      "Main parsing found few courses. Trying alternative parsing method"
-    );
+  // Fill in empty time slots with standard time slots
+  const standardTimeSlots = [
+    "09:00-09:55",
+    "10:00-10:55",
+    "11:00-11:55",
+    "12:00-12:55",
+    "13:00-13:55",
+    "14:00-14:55",
+    "15:00-15:55",
+    "16:00-17:30",
+  ];
 
-    // Look for all course codes in the entire text
-    const courseRegex = /(CSE|SEC|MGT|VAC)\s*\d+(\s*\(\w+\s*\d+\))?/gi;
-    let match;
-    const allCourses = [];
-
-    while ((match = courseRegex.exec(text)) !== null) {
-      allCourses.push({
-        course: match[0],
-        position: match.index,
-      });
-    }
-
-    console.log("Found courses:", allCourses);
-
-    // Simple table structure inference
-    // This is a simplified approach - in a real implementation, you'd need more
-    // sophisticated logic to determine which day/time each course belongs to
-    if (allCourses.length > 0) {
-      // For demonstration, let's just assign some of these to time slots
-      // You would need to customize this based on your actual timetable structure
-      const slotsArray = timeSlots.filter((v, i) => i % 2 === 0); // Take unique time slots
-
-      // Simple distribution of courses across days and times
-      // This would need to be refined based on actual table structure
-      let courseIndex = 0;
-      days.slice(0, 5).forEach((day) => {
-        // Assume Mon-Fri
-        slotsArray.forEach((slot) => {
-          if (courseIndex < allCourses.length) {
-            timetable[day][slot] = allCourses[courseIndex].course.replace(
-              /\s+/g,
-              " "
-            );
-            courseIndex++;
-          }
-        });
-      });
-    }
-  }
-
-  // Fill empty slots with "Free"
   days.forEach((day) => {
-    timeSlots
-      .filter((v, i) => i % 2 === 0)
-      .forEach((slot) => {
-        if (!timetable[day][slot]) {
-          timetable[day][slot] = "Free";
-        }
-      });
+    // First, copy any existing time slots
+    const existingSlots = { ...timetable[day] };
+
+    // Then initialize with standard slots
+    standardTimeSlots.forEach((slot) => {
+      timetable[day][slot] = "Free";
+    });
+
+    // Finally, copy back the existing data
+    for (const slot in existingSlots) {
+      // Find the closest standard time slot
+      const bestMatch = findClosestTimeSlot(slot, standardTimeSlots);
+      timetable[day][bestMatch] = existingSlots[slot];
+    }
   });
 
+  // Helper function to find the closest standard time slot
+  function findClosestTimeSlot(actualSlot, standardSlots) {
+    // This is a simple implementation - just returns the actual slot
+    // In a more complex version, you could calculate time differences
+    return (
+      standardSlots.find((slot) => slot === actualSlot) || standardSlots[0]
+    );
+  }
+
+  console.log("Final parsed timetable:", JSON.stringify(timetable, null, 2));
   return timetable;
+};
+
+exports.uploadTimetable = async (req, res) => {
+  uploadTimetableMiddleware(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+
+      const imagePath = req.file.path;
+
+      console.log("Uploaded image path:", imagePath);
+      console.log("Processing for userId:", userId);
+
+      // Debugging: Verify file exists
+      if (!fs.existsSync(imagePath)) {
+        throw new Error(`File not found at path: ${imagePath}`);
+      }
+
+      console.log("Starting OCR with Google Vision API...");
+      const text = await performOCR(imagePath);
+      console.log("OCR Text:", text);
+
+      const timetableData = parseTimetable(text);
+
+      // Delete any existing timetable for this user to avoid duplicates
+      await Timetable.findOneAndDelete({ userId });
+
+      const timetable = new Timetable({
+        userId,
+        filePath: imagePath,
+        timetableData,
+        ocrEngine: "google-vision",
+      });
+
+      const savedTimetable = await timetable.save();
+      console.log("Saved timetable with ID:", savedTimetable._id);
+
+      res.status(201).json({
+        message: "Timetable uploaded and processed successfully",
+        timetableId: savedTimetable._id,
+        timetableData,
+      });
+    } catch (error) {
+      console.error("Error in uploadTimetable:", error);
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
 };
 
 exports.uploadAcademicCalendar = (req, res) => {
@@ -267,14 +413,22 @@ exports.uploadAcademicCalendar = (req, res) => {
       const { userId } = req.body;
       const calendar = new AcademicCalendar({
         userId,
-        calendarData: req.file.path,
+        filePath: req.file.path,
+        calendarData: req.calendarData || null,
+        ocrEngine: req.file.mimetype.startsWith("image/")
+          ? "google-vision"
+          : null,
       });
       await calendar.save();
       res.status(201).json({
         message: "Academic calendar uploaded successfully",
         file: req.file,
+        calendarData: req.calendarData,
       });
     } catch (error) {
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       res.status(500).json({ error: error.message });
     }
   });
@@ -287,12 +441,20 @@ exports.uploadSyllabus = (req, res) => {
 
     try {
       const { userId } = req.body;
-      const syllabus = new Syllabus({ userId, syllabusData: req.file.path });
+      const syllabus = new Syllabus({
+        userId,
+        filePath: req.file.path,
+        ocrEngine: null, // No OCR for syllabus
+      });
       await syllabus.save();
-      res
-        .status(201)
-        .json({ message: "Syllabus uploaded successfully", file: req.file });
+      res.status(201).json({
+        message: "Syllabus uploaded successfully",
+        file: req.file,
+      });
     } catch (error) {
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       res.status(500).json({ error: error.message });
     }
   });
@@ -300,10 +462,21 @@ exports.uploadSyllabus = (req, res) => {
 
 exports.getTimetableSummary = async (req, res) => {
   try {
-    const { userId } = req.body;
+    // Get userId from either body or params, ensuring backward compatibility
+    const userId = req.params.userId || req.body.userId;
+
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
+    }
+
+    console.log("Looking for timetable with userId:", userId);
+
     const timetable = await Timetable.findOne({ userId });
-    if (!timetable)
+    if (!timetable) {
       return res.status(404).json({ error: "Timetable not found" });
+    }
+
+    console.log("Found timetable:", timetable._id);
 
     const summary = {};
     const timetableData = timetable.timetableData;
@@ -312,24 +485,31 @@ exports.getTimetableSummary = async (req, res) => {
       const slots = timetableData[day];
       for (const slot in slots) {
         const subject = slots[slot];
-        // Skip free slots
         if (subject !== "Free") {
-          // Extract just the course code without room numbers
-          const courseMatch = subject.match(/(CSE|SEC|MGT|VAC)\s*\d+/i);
-          if (courseMatch) {
-            const courseCode = courseMatch[0].replace(/\s+/g, " ");
+          // Match all course codes in the subject string
+          const coursesMatches = [
+            ...subject.matchAll(/(CSE|SEC|MGT|VAC)\s*\d+/gi),
+          ];
 
-            if (!summary[courseCode]) {
-              summary[courseCode] = 0;
+          if (coursesMatches.length > 0) {
+            for (const match of coursesMatches) {
+              const courseCode = match[0].replace(/\s+/g, " ");
+              summary[courseCode] = (summary[courseCode] || 0) + 1;
             }
-            summary[courseCode] += 1;
+          } else {
+            // Fallback if no courses matched the regex
+            console.log(`Non-matching subject entry: ${subject}`);
           }
         }
       }
     }
 
-    res.status(200).json({ summary });
+    res.status(200).json({
+      summary,
+      ocrEngine: timetable.ocrEngine || "unknown",
+    });
   } catch (error) {
+    console.error("Error in getTimetableSummary:", error);
     res.status(500).json({ error: error.message });
   }
 };
