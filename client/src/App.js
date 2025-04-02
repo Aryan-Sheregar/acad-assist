@@ -7,11 +7,13 @@ function App() {
   const [timetableFile, setTimetableFile] = useState(null);
   const [calendarFile, setCalendarFile] = useState(null);
   const [syllabusFile, setSyllabusFile] = useState(null);
-  const [syllabusContent, setSyllabusContent] = useState("");
-  const [recommendations, setRecommendations] = useState([]);
   const [syllabusRecommendations, setSyllabusRecommendations] = useState([]);
   const [leaveSuggestions, setLeaveSuggestions] = useState([]);
-  const [timetableSummary, setTimetableSummary] = useState(null); // New: Timetable summary
+  const [timetableSummary, setTimetableSummary] = useState(null);
+  const [semesterDates, setSemesterDates] = useState({
+    startDate: "",
+    endDate: "",
+  });
   const [message, setMessage] = useState("");
 
   const handleUserChange = (e) => {
@@ -28,6 +30,10 @@ function App() {
 
   const handleSyllabusChange = (e) => {
     setSyllabusFile(e.target.files[0]);
+  };
+
+  const handleDateChange = (e) => {
+    setSemesterDates({ ...semesterDates, [e.target.name]: e.target.value });
   };
 
   const addUser = async () => {
@@ -70,9 +76,15 @@ function App() {
       setMessage("Please select a calendar file and provide a User ID");
       return;
     }
+    if (!semesterDates.startDate || !semesterDates.endDate) {
+      setMessage("Please select both start and end dates for the semester");
+      return;
+    }
     const formData = new FormData();
     formData.append("calendar", calendarFile);
     formData.append("userId", userData.userId);
+    formData.append("startDate", semesterDates.startDate);
+    formData.append("endDate", semesterDates.endDate);
 
     try {
       const res = await axios.post(
@@ -106,21 +118,6 @@ function App() {
         }
       );
       setMessage(res.data.message);
-    } catch (error) {
-      setMessage("Error: " + (error.response?.data.error || error.message));
-    }
-  };
-
-  const getRecommendations = async () => {
-    try {
-      const res = await axios.post(
-        "http://localhost:5001/api/recommendations/request",
-        {
-          syllabusContent,
-        }
-      );
-      setRecommendations(res.data.recommendations);
-      setMessage("Recommendations fetched successfully");
     } catch (error) {
       setMessage("Error: " + (error.response?.data.error || error.message));
     }
@@ -227,6 +224,24 @@ function App() {
       <div>
         <h2>Upload Academic Calendar</h2>
         <input type="file" onChange={handleCalendarChange} />
+        <div>
+          <label>Start Date: </label>
+          <input
+            type="date"
+            name="startDate"
+            value={semesterDates.startDate}
+            onChange={handleDateChange}
+          />
+        </div>
+        <div>
+          <label>End Date: </label>
+          <input
+            type="date"
+            name="endDate"
+            value={semesterDates.endDate}
+            onChange={handleDateChange}
+          />
+        </div>
         <button onClick={uploadAcademicCalendar}>Upload</button>
       </div>
 
@@ -235,28 +250,6 @@ function App() {
         <h2>Upload Course Syllabus</h2>
         <input type="file" onChange={handleSyllabusChange} />
         <button onClick={uploadSyllabus}>Upload</button>
-      </div>
-
-      {/* Get Manual Recommendations */}
-      <div>
-        <h2>Get Manual Recommendations</h2>
-        <input
-          placeholder="Enter syllabus content (e.g., Physics Chapter 1)"
-          value={syllabusContent}
-          onChange={(e) => setSyllabusContent(e.target.value)}
-        />
-        <button onClick={getRecommendations}>Get Recommendations</button>
-        {recommendations.length > 0 && (
-          <ul>
-            {recommendations.map((rec, index) => (
-              <li key={index}>
-                <a href={rec.url} target="_blank" rel="noopener noreferrer">
-                  {rec.title}
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
 
       {/* Get Syllabus-Based Recommendations */}

@@ -1,14 +1,40 @@
-const fs = require("fs").promises;
-const pdf = require("pdf-parse"); // Install: npm install pdf-parse
+const AcademicCalendar = require("../models/AcademicCalendar");
 
-exports.optimizeLeaves = async (calendarPath) => {
-  const dataBuffer = await fs.readFile(calendarPath);
-  const data = await pdf(dataBuffer);
-  const text = data.text;
-  // Simple logic: Find "Holiday" or date patterns, suggest extensions
-  const holidays = text.match(/Holiday.*\d{2}-\d{2}-\d{4}/g) || [];
-  return holidays.map((h) => ({
-    date: h,
-    suggestion: "Extend with weekend if applicable",
-  }));
+// Get leave optimization suggestions
+async function getLeaveOptimizations(userId) {
+  // Find the user's academic calendar
+  const calendar = await AcademicCalendar.findOne({ userId });
+
+  if (!calendar) {
+    throw new Error("Academic calendar not found");
+  }
+
+  // Get calendar data
+  const calendarData = calendar.calendarData || [];
+
+  // Calculate leave optimizations
+  const optimizations = calculateLeaveOptimizations(calendarData);
+
+  return optimizations;
+}
+
+// Helper function to calculate leave optimizations
+function calculateLeaveOptimizations(calendarData) {
+  // Implementation depends on your specific requirements
+  const holidays = calendarData.filter(
+    (entry) => entry.holiday && typeof entry.holiday === "string"
+  );
+
+  const optimizations = {
+    longWeekends: [],
+    suggestedLeaves: [],
+  };
+
+  // Your algorithm here
+
+  return optimizations;
+}
+
+module.exports = {
+  getLeaveOptimizations,
 };
