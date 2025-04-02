@@ -5,6 +5,7 @@ const { ImageAnnotatorClient } = require("@google-cloud/vision");
 const Timetable = require("../models/Timetable");
 const AcademicCalendar = require("../models/AcademicCalendar");
 const Syllabus = require("../models/Syllabus");
+const leaveOptimizationService = require("../services/leaveOptimizationService");
 
 // Initialize Google Vision client
 // Initialize Google Vision client with explicit credentials
@@ -510,6 +511,28 @@ exports.getTimetableSummary = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getTimetableSummary:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getLeaveOptimizations = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.body.userId;
+
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
+    }
+
+    const optimizations = await leaveOptimizationService.getLeaveOptimizations(
+      userId
+    );
+
+    res.status(200).json({
+      message: "Leave optimizations calculated successfully",
+      optimizations,
+    });
+  } catch (error) {
+    console.error("Error in getLeaveOptimizations:", error);
     res.status(500).json({ error: error.message });
   }
 };
