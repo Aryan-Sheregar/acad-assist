@@ -443,8 +443,8 @@ exports.uploadSyllabus = (req, res) => {
       const { userId } = req.body;
       const syllabus = new Syllabus({
         userId,
-        filePath: req.file.path,
-        ocrEngine: null, // No OCR for syllabus
+        syllabusData: req.file.path, 
+        uploadTimestamp: Date.now(),
       });
       await syllabus.save();
       res.status(201).json({
