@@ -142,6 +142,7 @@ function App() {
     }
   };
 
+
   const getLeaveOptimization = async () => {
     if (!userData.userId) {
       setMessage("Please provide a User ID");
@@ -154,7 +155,8 @@ function App() {
           userId: userData.userId,
         }
       );
-      setLeaveSuggestions(res.data.suggestions);
+      // Update to use res.data.optimizations.suggestedLeaves
+      setLeaveSuggestions(res.data.optimizations.suggestedLeaves || []);
       setMessage("Leave optimization suggestions fetched successfully");
     } catch (error) {
       setMessage("Error: " + (error.response?.data.error || error.message));

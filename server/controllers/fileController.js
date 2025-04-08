@@ -5,9 +5,7 @@ const { ImageAnnotatorClient } = require("@google-cloud/vision");
 const Timetable = require("../models/Timetable");
 const AcademicCalendar = require("../models/AcademicCalendar");
 const Syllabus = require("../models/Syllabus");
-const leaveOptimizationService = require("../services/leaveOptimizationService");
 
-// Initialize Google Vision client
 // Initialize Google Vision client with explicit credentials
 const visionClient = new ImageAnnotatorClient({
   keyFilename: path.join(__dirname, "../GV.json"), // Adjust path as needed
@@ -411,11 +409,13 @@ exports.uploadAcademicCalendar = (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     try {
-      const { userId } = req.body;
+      const { userId, startDate, endDate } = req.body;
       const calendar = new AcademicCalendar({
         userId,
         filePath: req.file.path,
         calendarData: req.calendarData || null,
+        startDate: startDate, // Add startDate from frontend
+        endDate: endDate, // Add endDate from frontend
         ocrEngine: req.file.mimetype.startsWith("image/")
           ? "google-vision"
           : null,
@@ -444,7 +444,7 @@ exports.uploadSyllabus = (req, res) => {
       const { userId } = req.body;
       const syllabus = new Syllabus({
         userId,
-        syllabusData: req.file.path, 
+        syllabusData: req.file.path,
         uploadTimestamp: Date.now(),
       });
       await syllabus.save();
@@ -511,28 +511,6 @@ exports.getTimetableSummary = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getTimetableSummary:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-exports.getLeaveOptimizations = async (req, res) => {
-  try {
-    const userId = req.params.userId || req.body.userId;
-
-    if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
-    }
-
-    const optimizations = await leaveOptimizationService.getLeaveOptimizations(
-      userId
-    );
-
-    res.status(200).json({
-      message: "Leave optimizations calculated successfully",
-      optimizations,
-    });
-  } catch (error) {
-    console.error("Error in getLeaveOptimizations:", error);
     res.status(500).json({ error: error.message });
   }
 };
