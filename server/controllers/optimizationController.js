@@ -1,23 +1,20 @@
-const leaveOptimizationService = require("../services/leaveOptimizationService.js");
+// server/controllers/optimizationController.js
+const leaveOptimizationService = require("../services/leaveOptimizationService");
 
-exports.getLeaveOptimizations = async (req, res) => {
+exports.getLeaveOptimization = async (req, res) => {
   try {
-    const userId = req.params.userId || req.body.userId;
+    const { userId } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
+      return res.status(400).json({ error: "User ID is required" });
     }
 
-    const optimizations = await leaveOptimizationService.getLeaveOptimizations(
+    const suggestions = await leaveOptimizationService.getLeaveOptimizations(
       userId
     );
-
-    res.status(200).json({
-      message: "Leave optimizations calculated successfully",
-      optimizations,
-    });
+    res.status(200).json({ suggestions });
   } catch (error) {
-    console.error("Error in getLeaveOptimizations:", error);
+    console.error("Error in getLeaveOptimization:", error);
     res.status(500).json({ error: error.message });
   }
 };

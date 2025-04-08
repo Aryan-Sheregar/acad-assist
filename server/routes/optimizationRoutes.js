@@ -1,10 +1,11 @@
 // server/routes/optimizationRoutes.js
 const express = require("express");
-const {
-  getLeaveOptimizations, // Change from getLeaveOptimization to getLeaveOptimizations
-} = require("../controllers/optimizationController");
 const router = express.Router();
+const {
+  getLeaveOptimization,
+} = require("../controllers/optimizationController");
 
-router.post("/leave", getLeaveOptimizations); // Update to match the imported name
+// Make sure the function is properly imported and defined
+router.post("/leave", getLeaveOptimization);
 
 module.exports = router;
