@@ -38,6 +38,7 @@ function App() {
   const handleDateChange = (e) => {
     setSemesterDates({ ...semesterDates, [e.target.name]: e.target.value });
   };
+  console.log("Leave Suggestions:", leaveSuggestions);
 
   const addUser = async () => {
     try {
@@ -194,6 +195,7 @@ function App() {
 
   return (
     <div className="App">
+    
       <h1>Study App</h1>
 
       {/* Add User */}
@@ -298,10 +300,26 @@ function App() {
                 <div key={index} className="suggestion-item">
                   <h5>{suggestion.type}</h5>
                   <p>{suggestion.strategy}</p>
-                  <p>
-                    <strong>Days off:</strong> {suggestion.daysOff} |{" "}
-                    <strong>Leaves needed:</strong> {suggestion.leavesUsed}
-                  </p>
+                  <ul>
+                    <li>
+                      <strong>Leave Days:</strong>{" "}
+                      {suggestion.leaveDays
+                        ?.map((d) => `${d.day} (${d.date})`)
+                        .join(", ")}
+                    </li>
+                    <li>
+                      <strong>Holiday(s):</strong>{" "}
+                      {suggestion.holidays
+                        ?.map((d) => `${d.day} (${d.date})`)
+                        .join(", ")}
+                    </li>
+                    <li>
+                      <strong>Total Days Off:</strong> {suggestion.daysOff}
+                    </li>
+                    <li>
+                      <strong>Leaves Used:</strong> {suggestion.leavesUsed}
+                    </li>
+                  </ul>
                 </div>
               ))}
             </div>
