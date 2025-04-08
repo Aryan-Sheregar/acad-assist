@@ -183,8 +183,7 @@ function calculateLeaveOptimizations(
 }
 
 function calculateAttendanceRequirement(startDate, endDate, timetable) {
-  // If no timetable or dates, return basic message
-  if (!startDate || !endDate || !timetable) {
+  if (!startDate || !endDate || !timetable || !timetable.timetableData) {
     return {
       message:
         "To calculate attendance requirements, please upload a timetable and specify semester start/end dates.",
@@ -192,33 +191,55 @@ function calculateAttendanceRequirement(startDate, endDate, timetable) {
   }
 
   try {
-    // Parse start and end dates
-    const start = new Date(startDate.split(".").reverse().join("-"));
-    const end = new Date(endDate.split(".").reverse().join("-"));
-
-    // Calculate total days in semester (excluding weekends)
+    const start = new Date(startDate);
+    const end = new Date(endDate);
     const totalDays = getWorkingDays(start, end);
+    const totalWeeks = Math.ceil(totalDays / 5); // approx working weeks
 
-    // Calculate total classes based on timetable
-    const classesPerWeek = countClassesPerWeek(timetable.timetableData);
-    const totalWeeks = Math.ceil(totalDays / 5); // Approximate number of weeks
-    const totalClasses = classesPerWeek * totalWeeks;
+    const perSubjectCounts = {}; // key = subject, value = classes per week
 
-    // Calculate allowed absences (25% of total)
-    const minAttendanceRequired = Math.ceil(totalClasses * 0.75);
-    const maxAbsences = totalClasses - minAttendanceRequired;
+    for (const day in timetable.timetableData) {
+      const slots = timetable.timetableData[day];
+      for (const slot in slots) {
+        const subject = slots[slot].trim();
+        if (subject && subject.toLowerCase() !== "free") {
+          const matches = subject.match(/(CSE|SEC|MGT|VAC)\s*\d+/gi);
+          if (matches) {
+            for (const match of matches) {
+              const subjectCode = match.replace(/\s+/g, " ");
+              perSubjectCounts[subjectCode] =
+                (perSubjectCounts[subjectCode] || 0) + 1;
+            }
+          }
+        }
+      }
+    }
+
+    // Now calculate per subject attendance data
+    const subjectAttendance = {};
+
+    for (const subject in perSubjectCounts) {
+      const weekly = perSubjectCounts[subject];
+      const total = weekly * totalWeeks;
+      const minRequired = Math.ceil(total * 0.75);
+      const maxMiss = total - minRequired;
+
+      subjectAttendance[subject] = {
+        totalClasses: total,
+        minAttendanceRequired: minRequired,
+        maxAllowedAbsences: maxMiss,
+      };
+    }
 
     return {
-      totalClasses: totalClasses,
-      minAttendanceRequired: minAttendanceRequired,
-      maxAllowedAbsences: maxAbsences,
-      message: `You can miss up to ${maxAbsences} classes to maintain 75% attendance. The semester has approximately ${totalClasses} total classes.`,
+      subjectWise: subjectAttendance,
+      message: `Attendance requirements calculated for each subject.`,
     };
   } catch (error) {
-    console.error("Error calculating attendance:", error);
+    console.error("Error calculating per-subject attendance:", error);
     return {
       message:
-        "Could not calculate attendance requirements. Please ensure semester dates are correctly formatted.",
+        "Could not calculate attendance per subject. Check date formatting and timetable data.",
     };
   }
 }

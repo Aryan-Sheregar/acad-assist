@@ -410,12 +410,17 @@ exports.uploadAcademicCalendar = (req, res) => {
 
     try {
       const { userId, startDate, endDate } = req.body;
+      const parseDate = (str) => {
+        const [day, month, year] = str.split(".");
+        return new Date(`${year}-${month}-${day}`);
+      };
+
       const calendar = new AcademicCalendar({
         userId,
         filePath: req.file.path,
         calendarData: req.calendarData || null,
-        startDate: startDate, // Add startDate from frontend
-        endDate: endDate, // Add endDate from frontend
+        startDate: parseDate(startDate),
+        endDate: parseDate(endDate),
         ocrEngine: req.file.mimetype.startsWith("image/")
           ? "google-vision"
           : null,

@@ -86,8 +86,8 @@ function App() {
     const formData = new FormData();
     formData.append("calendar", calendarFile);
     formData.append("userId", userData.userId);
-    formData.append("startDate", semesterDates.startDate);
-    formData.append("endDate", semesterDates.endDate);
+    formData.append("startDate", formatDate(semesterDates.startDate));
+    formData.append("endDate", formatDate(semesterDates.endDate));
 
     try {
       const res = await axios.post(
@@ -145,6 +145,11 @@ function App() {
     }
   };
 
+  const formatDate = (isoDate) => {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${day}.${month}.${year}`;
+  };
 
  const getLeaveOptimization = async () => {
    try {
@@ -154,7 +159,7 @@ function App() {
      }
 
      const res = await axios.post(
-       "http://localhost:5000/api/optimization/leave",
+       "http://localhost:5001/api/optimization/leave",
        {
          userId: userData.userId,
        }
@@ -306,21 +311,22 @@ function App() {
           <div className="attendance-info">
             <h4>Attendance Information:</h4>
             <p>{leaveSuggestions.attendanceInfo.message}</p>
-            {leaveSuggestions.attendanceInfo.totalClasses && (
-              <ul>
-                <li>
-                  Total Classes: {leaveSuggestions.attendanceInfo.totalClasses}
-                </li>
-                <li>
-                  Minimum Required Attendance:{" "}
-                  {leaveSuggestions.attendanceInfo.minAttendanceRequired}{" "}
-                  classes
-                </li>
-                <li>
-                  Maximum Allowed Absences:{" "}
-                  {leaveSuggestions.attendanceInfo.maxAllowedAbsences} classes
-                </li>
-              </ul>
+
+            {leaveSuggestions.attendanceInfo.subjectWise && (
+              <div>
+                <h5>Subject-wise Breakdown:</h5>
+                <ul>
+                  {Object.entries(
+                    leaveSuggestions.attendanceInfo.subjectWise
+                  ).map(([subject, info], index) => (
+                    <li key={index}>
+                      <strong>{subject}</strong> — Total: {info.totalClasses},
+                      Min Required: {info.minAttendanceRequired}, Max Leaves:{" "}
+                      {info.maxAllowedAbsences}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}
