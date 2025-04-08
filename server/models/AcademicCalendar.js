@@ -14,6 +14,8 @@ const academicCalendarSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   filePath: { type: String, required: true },
   calendarData: [calendarEntrySchema], // Array of calendar entry objects
+  startDate: { type: Date, required: true }, // Added startDate
+  endDate: { type: Date, required: true }, // Added endDate
   ocrEngine: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
@@ -24,3 +26,4 @@ const AcademicCalendar = mongoose.model(
 );
 
 module.exports = AcademicCalendar;
+  

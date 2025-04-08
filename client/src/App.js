@@ -8,7 +8,10 @@ function App() {
   const [calendarFile, setCalendarFile] = useState(null);
   const [syllabusFile, setSyllabusFile] = useState(null);
   const [syllabusRecommendations, setSyllabusRecommendations] = useState([]);
-  const [leaveSuggestions, setLeaveSuggestions] = useState([]);
+  const [leaveSuggestions, setLeaveSuggestions] = useState({
+    strategicLeaves: [],
+    attendanceInfo: { message: "" },
+  });
   const [timetableSummary, setTimetableSummary] = useState(null);
   const [semesterDates, setSemesterDates] = useState({
     startDate: "",
@@ -83,8 +86,8 @@ function App() {
     const formData = new FormData();
     formData.append("calendar", calendarFile);
     formData.append("userId", userData.userId);
-    formData.append("startDate", semesterDates.startDate);
-    formData.append("endDate", semesterDates.endDate);
+    formData.append("startDate", formatDate(semesterDates.startDate));
+    formData.append("endDate", formatDate(semesterDates.endDate));
 
     try {
       const res = await axios.post(
@@ -142,24 +145,33 @@ function App() {
     }
   };
 
-  const getLeaveOptimization = async () => {
-    if (!userData.userId) {
-      setMessage("Please provide a User ID");
-      return;
-    }
-    try {
-      const res = await axios.post(
-        "http://localhost:5001/api/optimization/leave",
-        {
-          userId: userData.userId,
-        }
-      );
-      setLeaveSuggestions(res.data.suggestions);
-      setMessage("Leave optimization suggestions fetched successfully");
-    } catch (error) {
-      setMessage("Error: " + (error.response?.data.error || error.message));
-    }
+  const formatDate = (isoDate) => {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${day}.${month}.${year}`;
   };
+
+ const getLeaveOptimization = async () => {
+   try {
+     if (!userData.userId) {
+       setMessage("Please provide a User ID");
+       return;
+     }
+
+     const res = await axios.post(
+       "http://localhost:5001/api/optimization/leave",
+       {
+         userId: userData.userId,
+       }
+     );
+
+     setLeaveSuggestions(res.data.suggestions);
+     setMessage("Leave optimization suggestions fetched successfully");
+   } catch (error) {
+     console.error("Error:", error);
+     setMessage("Error: " + (error.response?.data.error || error.message));
+   }
+ };
 
   const getTimetableSummary = async () => {
     if (!userData.userId) {
@@ -272,17 +284,51 @@ function App() {
       </div>
 
       {/* Get Leave Optimization */}
-      <div>
-        <h2>Leave Optimization</h2>
-        <button onClick={getLeaveOptimization}>Get Suggestions</button>
-        {leaveSuggestions.length > 0 && (
-          <ul>
-            {leaveSuggestions.map((suggestion, index) => (
-              <li key={index}>
-                {suggestion.date} - {suggestion.suggestion}
-              </li>
-            ))}
-          </ul>
+      <div className="section">
+        <h3>Get Leave Optimization</h3>
+        <div>
+          <button onClick={getLeaveOptimization}>Get Leave Suggestions</button>
+        </div>
+
+        {leaveSuggestions.strategicLeaves &&
+          leaveSuggestions.strategicLeaves.length > 0 && (
+            <div className="results">
+              <h4>Strategic Leave Suggestions:</h4>
+              {leaveSuggestions.strategicLeaves.map((suggestion, index) => (
+                <div key={index} className="suggestion-item">
+                  <h5>{suggestion.type}</h5>
+                  <p>{suggestion.strategy}</p>
+                  <p>
+                    <strong>Days off:</strong> {suggestion.daysOff} |{" "}
+                    <strong>Leaves needed:</strong> {suggestion.leavesUsed}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+        {leaveSuggestions.attendanceInfo && (
+          <div className="attendance-info">
+            <h4>Attendance Information:</h4>
+            <p>{leaveSuggestions.attendanceInfo.message}</p>
+
+            {leaveSuggestions.attendanceInfo.subjectWise && (
+              <div>
+                <h5>Subject-wise Breakdown:</h5>
+                <ul>
+                  {Object.entries(
+                    leaveSuggestions.attendanceInfo.subjectWise
+                  ).map(([subject, info], index) => (
+                    <li key={index}>
+                      <strong>{subject}</strong> — Total: {info.totalClasses},
+                      Min Required: {info.minAttendanceRequired}, Max Leaves:{" "}
+                      {info.maxAllowedAbsences}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
