@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import axios from "axios";
 import "./App.css";
 
@@ -10,35 +10,46 @@ function App() {
   const [syllabusRecommendations, setSyllabusRecommendations] = useState([]);
   const [leaveSuggestions, setLeaveSuggestions] = useState({
     strategicLeaves: [],
-    attendanceInfo: { message: "" },
+    attendanceInfo: { message: "", subjectWise: {} },
   });
-  const [timetableSummary, setTimetableSummary] = useState(null);
   const [semesterDates, setSemesterDates] = useState({
     startDate: "",
     endDate: "",
   });
   const [message, setMessage] = useState("");
 
+  // References to file inputs
+  const timetableInputRef = useRef(null);
+  const calendarInputRef = useRef(null);
+  const syllabusInputRef = useRef(null);
+
   const handleUserChange = (e) => {
     setUserData({ ...userData, [e.target.name]: e.target.value });
   };
 
   const handleTimetableChange = (e) => {
-    setTimetableFile(e.target.files[0]);
+    const file = e.target.files[0];
+    setTimetableFile(file);
   };
 
   const handleCalendarChange = (e) => {
-    setCalendarFile(e.target.files[0]);
+    const file = e.target.files[0];
+    setCalendarFile(file);
   };
 
   const handleSyllabusChange = (e) => {
-    setSyllabusFile(e.target.files[0]);
+    const file = e.target.files[0];
+    setSyllabusFile(file);
   };
 
-  const handleDateChange = (e) => {
+  const handleDateChange = (e) =>
     setSemesterDates({ ...semesterDates, [e.target.name]: e.target.value });
+
+  const formatDate = (isoDate) => {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${day}.${month}.${year}`;
   };
-  console.log("Leave Suggestions:", leaveSuggestions);
 
   const addUser = async () => {
     try {
@@ -146,211 +157,232 @@ function App() {
     }
   };
 
-  const formatDate = (isoDate) => {
-    if (!isoDate) return "";
-    const [year, month, day] = isoDate.split("-");
-    return `${day}.${month}.${year}`;
-  };
-
- const getLeaveOptimization = async () => {
-   try {
-     if (!userData.userId) {
-       setMessage("Please provide a User ID");
-       return;
-     }
-
-     const res = await axios.post(
-       "http://localhost:5001/api/optimization/leave",
-       {
-         userId: userData.userId,
-       }
-     );
-
-     setLeaveSuggestions(res.data.suggestions);
-     setMessage("Leave optimization suggestions fetched successfully");
-   } catch (error) {
-     console.error("Error:", error);
-     setMessage("Error: " + (error.response?.data.error || error.message));
-   }
- };
-
-  const getTimetableSummary = async () => {
-    if (!userData.userId) {
-      setMessage("Please provide a User ID");
-      return;
-    }
+  const getLeaveOptimization = async () => {
     try {
+      if (!userData.userId) {
+        setMessage("Please provide a User ID");
+        return;
+      }
+
       const res = await axios.post(
-        "http://localhost:5001/api/files/timetable-summary",
+        "http://localhost:5001/api/optimization/leave",
         {
           userId: userData.userId,
         }
       );
-      setTimetableSummary(res.data.summary);
-      setMessage("Timetable summary fetched successfully");
+
+      setLeaveSuggestions(res.data.suggestions);
+      setMessage("Leave optimization suggestions fetched successfully");
     } catch (error) {
+      console.error("Error:", error);
       setMessage("Error: " + (error.response?.data.error || error.message));
     }
   };
 
+  // Helper function for file input display
+  const getFileName = (file) => {
+    return file ? file.name : "No file chosen";
+  };
+
   return (
     <div className="App">
-    
-      <h1>Study App</h1>
+      <h1>AcadAssist Dashboard</h1>
+      <p style={{ textAlign: "center", marginBottom: "40px" }}>
+        Your personal academic assistant for better semester planning
+      </p>
 
-      {/* Add User */}
-      <div>
-        <h2>Add User</h2>
-        <input
-          name="userId"
-          placeholder="User ID"
-          onChange={handleUserChange}
-        />
-        <input name="name" placeholder="Name" onChange={handleUserChange} />
-        <input name="email" placeholder="Email" onChange={handleUserChange} />
-        <button onClick={addUser}>Add User</button>
-      </div>
+      <div className="section-grid">
+        {/* Add User */}
+        <div className="card">
+          <h3>👤 Add User</h3>
+          <label>User ID</label>
+          <input
+            type="text"
+            name="userId"
+            onChange={handleUserChange}
+            placeholder="Enter user ID"
+          />
+          <label>Name</label>
+          <input
+            type="text"
+            name="name"
+            onChange={handleUserChange}
+            placeholder="Enter name"
+          />
+          <label>Email</label>
+          <input
+            type="email"
+            name="email"
+            onChange={handleUserChange}
+            placeholder="Enter email"
+          />
+          <button className="button" onClick={addUser}>
+            Save User
+          </button>
+        </div>
 
-      {/* Upload Timetable */}
-      <div>
-        <h2>Upload Timetable</h2>
-        <input type="file" onChange={handleTimetableChange} />
-        <button onClick={uploadTimetable}>Upload</button>
-        <button onClick={getTimetableSummary}>Get Timetable Summary</button>
-        {timetableSummary && (
-          <div>
-            <h3>Timetable Summary (Weekly Class Count)</h3>
-            <ul>
-              {Object.entries(timetableSummary).map(
-                ([subject, count], index) => (
-                  <li key={index}>
-                    {subject}: {count} {count === 1 ? "class" : "classes"} per
-                    week
-                  </li>
-                )
-              )}
-            </ul>
+        {/* Upload Timetable */}
+        <div className="card">
+          <h3>🗓️ Upload Timetable</h3>
+          <p>Optimize your class schedule</p>
+          <div className="file-input-wrapper">
+            <div
+              className="file-input-field"
+              onClick={() => timetableInputRef.current.click()}
+            >
+              {getFileName(timetableFile)}
+              <span className="file-input-label">Browse</span>
+            </div>
+            <input
+              type="file"
+              ref={timetableInputRef}
+              onChange={handleTimetableChange}
+            />
           </div>
-        )}
-      </div>
+          <button className="button" onClick={uploadTimetable}>
+            Upload
+          </button>
+        </div>
 
-      {/* Upload Academic Calendar */}
-      <div>
-        <h2>Upload Academic Calendar</h2>
-        <input type="file" onChange={handleCalendarChange} />
-        <div>
-          <label>Start Date: </label>
+        {/* Upload Calendar */}
+        <div className="card">
+          <h3>📅 Upload Calendar</h3>
+          <p>Track academic holidays</p>
+          <div className="file-input-wrapper">
+            <div
+              className="file-input-field"
+              onClick={() => calendarInputRef.current.click()}
+            >
+              {getFileName(calendarFile)}
+              <span className="file-input-label">Browse</span>
+            </div>
+            <input
+              type="file"
+              ref={calendarInputRef}
+              onChange={handleCalendarChange}
+            />
+          </div>
+          <label>Start Date</label>
           <input
             type="date"
             name="startDate"
             value={semesterDates.startDate}
             onChange={handleDateChange}
           />
-        </div>
-        <div>
-          <label>End Date: </label>
+          <label>End Date</label>
           <input
             type="date"
             name="endDate"
             value={semesterDates.endDate}
             onChange={handleDateChange}
           />
+          <button className="button" onClick={uploadAcademicCalendar}>
+            Upload
+          </button>
         </div>
-        <button onClick={uploadAcademicCalendar}>Upload</button>
+
+        {/* Upload Syllabus */}
+        <div className="card">
+          <h3>📘 Upload Syllabus</h3>
+          <p>Personalized study videos</p>
+          <div className="file-input-wrapper">
+            <div
+              className="file-input-field"
+              onClick={() => syllabusInputRef.current.click()}
+            >
+              {getFileName(syllabusFile)}
+              <span className="file-input-label">Browse</span>
+            </div>
+            <input
+              type="file"
+              ref={syllabusInputRef}
+              onChange={handleSyllabusChange}
+            />
+          </div>
+          <button className="button" onClick={uploadSyllabus}>
+            Upload
+          </button>
+        </div>
       </div>
 
-      {/* Upload Syllabus */}
-      <div>
-        <h2>Upload Course Syllabus</h2>
-        <input type="file" onChange={handleSyllabusChange} />
-        <button onClick={uploadSyllabus}>Upload</button>
-      </div>
-
-      {/* Get Syllabus-Based Recommendations */}
-      <div>
-        <h2>Get Syllabus-Based Recommendations</h2>
-        <button onClick={getSyllabusRecommendations}>
-          Fetch from Syllabus
+      {/* Action Buttons */}
+      <div className="action-buttons">
+        <button className="button" onClick={getSyllabusRecommendations}>
+          🎓 Get Syllabus Recommendations
         </button>
-        {syllabusRecommendations.length > 0 && (
+        <button className="button" onClick={getLeaveOptimization}>
+          📅 Get Leave Suggestions
+        </button>
+      </div>
+
+      {/* Video Recommendations */}
+      {syllabusRecommendations.length > 0 && (
+        <div className="recommendation-list">
+          <h3>📺 Syllabus-Based Video Recommendations</h3>
           <ul>
             {syllabusRecommendations.map((rec, index) => (
               <li key={index}>
-                <a href={rec.url} target="_blank" rel="noopener noreferrer">
-                  {rec.title}
+                <strong>{rec.title}</strong>
+                <br />
+                <a href={rec.url} target="_blank" rel="noreferrer">
+                  Watch
                 </a>
               </li>
             ))}
           </ul>
-        )}
-      </div>
-
-      {/* Get Leave Optimization */}
-      <div className="section">
-        <h3>Get Leave Optimization</h3>
-        <div>
-          <button onClick={getLeaveOptimization}>Get Leave Suggestions</button>
         </div>
+      )}
 
-        {leaveSuggestions.strategicLeaves &&
-          leaveSuggestions.strategicLeaves.length > 0 && (
-            <div className="results">
-              <h4>Strategic Leave Suggestions:</h4>
-              {leaveSuggestions.strategicLeaves.map((suggestion, index) => (
-                <div key={index} className="suggestion-item">
-                  <h5>{suggestion.type}</h5>
-                  <p>{suggestion.strategy}</p>
-                  <ul>
-                    <li>
-                      <strong>Leave Days:</strong>{" "}
-                      {suggestion.leaveDays
-                        ?.map((d) => `${d.day} (${d.date})`)
-                        .join(", ")}
-                    </li>
-                    <li>
-                      <strong>Holiday(s):</strong>{" "}
-                      {suggestion.holidays
-                        ?.map((d) => `${d.day} (${d.date})`)
-                        .join(", ")}
-                    </li>
-                    <li>
-                      <strong>Total Days Off:</strong> {suggestion.daysOff}
-                    </li>
-                    <li>
-                      <strong>Leaves Used:</strong> {suggestion.leavesUsed}
-                    </li>
-                  </ul>
-                </div>
-              ))}
+      {/* Leave Suggestions */}
+      {leaveSuggestions.strategicLeaves?.length > 0 && (
+        <div className="leave-list">
+          <h3>🧩 Leave Optimization Suggestions</h3>
+          {leaveSuggestions.strategicLeaves.map((item, idx) => (
+            <div key={idx} className="card" style={{ maxWidth: "100%" }}>
+              <h4>{item.type}</h4>
+              <p>{item.strategy}</p>
+              <ul>
+                <li>
+                  <strong>Leave Days:</strong>{" "}
+                  {item.leaveDays.map((d) => `${d.day} (${d.date})`).join(", ")}
+                </li>
+                <li>
+                  <strong>Holidays:</strong>{" "}
+                  {item.holidays.map((d) => `${d.day} (${d.date})`).join(", ")}
+                </li>
+                <li>
+                  <strong>Total Days Off:</strong> {item.daysOff}
+                </li>
+                <li>
+                  <strong>Leaves Used:</strong> {item.leavesUsed}
+                </li>
+              </ul>
+            </div>
+          ))}
+
+          {/* Subject-wise Attendance Insights */}
+          {leaveSuggestions.attendanceInfo.subjectWise && (
+            <div className="recommendation-list">
+              <h3>📘 Subject-wise Attendance Insights</h3>
+              <ul>
+                {Object.entries(
+                  leaveSuggestions.attendanceInfo.subjectWise
+                ).map(([subject, info], idx) => (
+                  <li key={idx}>
+                    <strong>{subject}</strong> — Total: {info.totalClasses}, Min
+                    Required: {info.minAttendanceRequired}, Max Leaves:{" "}
+                    {info.maxAllowedAbsences}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
+        </div>
+      )}
 
-        {leaveSuggestions.attendanceInfo && (
-          <div className="attendance-info">
-            <h4>Attendance Information:</h4>
-            <p>{leaveSuggestions.attendanceInfo.message}</p>
-
-            {leaveSuggestions.attendanceInfo.subjectWise && (
-              <div>
-                <h5>Subject-wise Breakdown:</h5>
-                <ul>
-                  {Object.entries(
-                    leaveSuggestions.attendanceInfo.subjectWise
-                  ).map(([subject, info], index) => (
-                    <li key={index}>
-                      <strong>{subject}</strong> — Total: {info.totalClasses},
-                      Min Required: {info.minAttendanceRequired}, Max Leaves:{" "}
-                      {info.maxAllowedAbsences}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {message && <p>{message}</p>}
+      {message && (
+        <p style={{ color: "#38bdf8", marginTop: "20px" }}>{message}</p>
+      )}
     </div>
   );
 }
