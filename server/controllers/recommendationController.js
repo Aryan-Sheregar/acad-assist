@@ -1,8 +1,8 @@
-import {
+const {
   getRecommendations,
   getSyllabusRecommendations,
-} from "../services/recommendationService.js";
-import Syllabus from "../models/Syllabus.js";
+} = require("../services/recommendationService");
+const Syllabus = require("../models/Syllabus");
 
 exports.requestRecommendations = async (req, res) => {
   try {

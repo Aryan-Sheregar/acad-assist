@@ -1,6 +1,6 @@
-import axios from "axios";
-import { promises as fs } from "fs";
-import pdf from "pdf-parse";
+const axios = require("axios");
+const fs = require("fs").promises;
+const pdf = require("pdf-parse");
 
 exports.getRecommendations = async (syllabusContent) => {
   try {

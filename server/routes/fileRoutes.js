@@ -1,10 +1,10 @@
-import express from "express";
-import {
+const express = require("express");
+const {
   uploadTimetable,
   uploadAcademicCalendar,
   uploadSyllabus,
   getTimetableSummary,
-} from "../controllers/fileController.js";
+} = require("../controllers/fileController");
 const router = express.Router();
 
 router.post("/upload-timetable", uploadTimetable);

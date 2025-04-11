@@ -1,8 +1,8 @@
-import express from "express";
-import {
+const express = require("express");
+const {
   requestRecommendations,
   getSyllabusRecommendations,
-} from "../controllers/recommendationController.js";
+} = require("../controllers/recommendationController");
 const router = express.Router();
 
 // Existing route for manual recommendations
