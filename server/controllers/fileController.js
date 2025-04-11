@@ -352,7 +352,9 @@ exports.uploadTimetable = async (req, res) => {
       const { userId } = req.body;
 
       if (!userId) {
-        return res.status(400).json({ error: "userId is required" });
+        // return res.status(400).json({ error: "userId is required" });
+        userId = "default_user";
+        console.log("Using default userId: ", userId);
       }
 
       const imagePath = req.file.path;

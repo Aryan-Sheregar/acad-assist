@@ -3,7 +3,11 @@ import axios from "axios";
 import "./App.css";
 
 function App() {
-  const [userData, setUserData] = useState({ userId: "", name: "", email: "" });
+  const [userData, setUserData] = useState({
+    userId: "default_user",
+    name: "Default User",
+    email: "default@example.com",
+  });
   const [timetableFile, setTimetableFile] = useState(null);
   const [calendarFile, setCalendarFile] = useState(null);
   const [syllabusFile, setSyllabusFile] = useState(null);
@@ -23,9 +27,9 @@ function App() {
   const calendarInputRef = useRef(null);
   const syllabusInputRef = useRef(null);
 
-  const handleUserChange = (e) => {
-    setUserData({ ...userData, [e.target.name]: e.target.value });
-  };
+  // const handleUserChange = (e) => {
+  //   setUserData({ ...userData, [e.target.name]: e.target.value });
+  // };
 
   const handleTimetableChange = (e) => {
     const file = e.target.files[0];
@@ -51,17 +55,31 @@ function App() {
     return `${day}.${month}.${year}`;
   };
 
-  const addUser = async () => {
-    try {
-      const res = await axios.post(
-        "http://localhost:5001/api/users/add",
-        userData
-      );
-      setMessage(res.data.message);
-    } catch (error) {
-      setMessage("Error: " + (error.response?.data.error || error.message));
-    }
+  // Helper function to extract YouTube video ID from URL
+  const getYoutubeVideoId = (url) => {
+    if (!url) return null;
+
+    // Handle various YouTube URL formats
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+
+    return match && match[2].length === 11 ? match[2] : null;
   };
+
+  // const addUser = async () => {
+  //   console.log("Using default user,",userData);
+  //   return;
+  //   try {
+  //     const res = await axios.post(
+  //       "http://localhost:5001/api/users/add",
+  //       userData
+  //     );
+  //     setMessage(res.data.message);
+  //   } catch (error) {
+  //     setMessage("Error: " + (error.response?.data.error || error.message));
+  //   }
+  // };
 
   const uploadTimetable = async () => {
     if (!timetableFile || !userData.userId) {
@@ -186,14 +204,14 @@ function App() {
 
   return (
     <div className="App">
-      <h1>AcadAssist Dashboard</h1>
+      <h1>AcadAssist</h1>
       <p style={{ textAlign: "center", marginBottom: "40px" }}>
         Your personal academic assistant for better semester planning
       </p>
 
       <div className="section-grid">
         {/* Add User */}
-        <div className="card">
+        {/* <div className="card">
           <h3>👤 Add User</h3>
           <label>User ID</label>
           <input
@@ -219,11 +237,11 @@ function App() {
           <button className="button" onClick={addUser}>
             Save User
           </button>
-        </div>
+        </div> */}
 
         {/* Upload Timetable */}
         <div className="card">
-          <h3>🗓️ Upload Timetable</h3>
+          <h3>Upload Timetable</h3>
           <p>Optimize your class schedule</p>
           <div className="file-input-wrapper">
             <div
@@ -246,7 +264,7 @@ function App() {
 
         {/* Upload Calendar */}
         <div className="card">
-          <h3>📅 Upload Calendar</h3>
+          <h3>Upload Calendar</h3>
           <p>Track academic holidays</p>
           <div className="file-input-wrapper">
             <div
@@ -283,7 +301,7 @@ function App() {
 
         {/* Upload Syllabus */}
         <div className="card">
-          <h3>📘 Upload Syllabus</h3>
+          <h3>Upload Syllabus</h3>
           <p>Personalized study videos</p>
           <div className="file-input-wrapper">
             <div
@@ -308,35 +326,61 @@ function App() {
       {/* Action Buttons */}
       <div className="action-buttons">
         <button className="button" onClick={getSyllabusRecommendations}>
-          🎓 Get Syllabus Recommendations
+          Get Syllabus Recommendations
         </button>
         <button className="button" onClick={getLeaveOptimization}>
-          📅 Get Leave Suggestions
+          Get Leave Suggestions
         </button>
       </div>
 
-      {/* Video Recommendations */}
+      {/* Video Recommendations with Previews */}
       {syllabusRecommendations.length > 0 && (
-        <div className="recommendation-list">
-          <h3>📺 Syllabus-Based Video Recommendations</h3>
-          <ul>
-            {syllabusRecommendations.map((rec, index) => (
-              <li key={index}>
-                <strong>{rec.title}</strong>
-                <br />
-                <a href={rec.url} target="_blank" rel="noreferrer">
-                  Watch
-                </a>
-              </li>
-            ))}
-          </ul>
+        <div className="recommendation-section">
+          <h3>Syllabus-Based Video Recommendations</h3>
+          <div className="video-grid">
+            {syllabusRecommendations.map((rec, index) => {
+              const videoId = getYoutubeVideoId(rec.url);
+
+              return (
+                <div key={index} className="video-card">
+                  <div className="video-preview">
+                    {videoId ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${videoId}`}
+                        title={rec.title}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    ) : (
+                      <div className="video-thumbnail">
+                        <img src="/api/placeholder/320/180" alt={rec.title} />
+                        <div className="play-button">▶</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="video-info">
+                    <h4>{rec.title}</h4>
+                    <a
+                      href={rec.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="video-link"
+                    >
+                      Watch Full Video
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* Leave Suggestions */}
       {leaveSuggestions.strategicLeaves?.length > 0 && (
         <div className="leave-list">
-          <h3>🧩 Leave Optimization Suggestions</h3>
+          <h3>Leave Optimization Suggestions</h3>
           {leaveSuggestions.strategicLeaves.map((item, idx) => (
             <div key={idx} className="card" style={{ maxWidth: "100%" }}>
               <h4>{item.type}</h4>
