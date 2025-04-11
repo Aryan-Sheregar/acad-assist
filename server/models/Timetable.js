@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const timetableSchema = new mongoose.Schema({
   userId: { type: String, required: true },

@@ -1,5 +1,7 @@
-import express from "express";
-import { getLeaveOptimization } from "../controllers/optimizationController.js";
+const express = require("express");
+const {
+  getLeaveOptimization,
+} = require("../controllers/optimizationController");
 
 const router = express.Router();
 
