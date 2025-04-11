@@ -58,4 +58,4 @@ jobs:
           app-name: 'acad-assist' # Replace with your Azure Web App name
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AzureAppService_PublishProfile_4f6355d13d1144efa650f9fbae1cb0f7 }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
