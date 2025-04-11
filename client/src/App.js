@@ -3,6 +3,7 @@ import axios from "axios";
 import "./App.css";
 
 function App() {
+  // eslint-disable-next-line no-unused-vars
   const [userData, setUserData] = useState({
     userId: "default_user",
     name: "Default User",
