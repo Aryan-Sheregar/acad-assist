@@ -24,7 +24,7 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
-app.use("/api/users", userRoutes);
+// app.use("/api/users", userRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/optimization", optimizationRoutes);

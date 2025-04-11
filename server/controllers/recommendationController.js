@@ -19,10 +19,13 @@ exports.requestRecommendations = async (req, res) => {
 
 exports.getSyllabusRecommendations = async (req, res) => {
   try {
-    const { userId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ error: "User ID is required" });
-    }
+    // const { userId } = req.body.userId || "default_user"; 
+    // if (!userId) {
+    //   return res.status(400).json({ error: "User ID is required" });
+    // }
+
+    const userId = req.body.userId || "default_user";
+    
     const syllabus = await Syllabus.findOne({ userId });
     if (!syllabus) {
       return res
