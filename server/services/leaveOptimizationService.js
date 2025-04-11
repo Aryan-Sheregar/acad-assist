@@ -1,6 +1,6 @@
 // server/services/leaveOptimizationService.js
-const AcademicCalendar = require("../models/AcademicCalendar");
-const Timetable = require("../models/Timetable");
+import AcademicCalendar from "../models/AcademicCalendar.js";
+import Timetable from "../models/Timetable.js";
 
 // Get leave optimization suggestions
 exports.getLeaveOptimizations = async (userId) => {

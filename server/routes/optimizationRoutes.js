@@ -1,9 +1,7 @@
-// server/routes/optimizationRoutes.js
-const express = require("express");
+import express from "express";
+import { getLeaveOptimization } from "../controllers/optimizationController.js";
+
 const router = express.Router();
-const {
-  getLeaveOptimization,
-} = require("../controllers/optimizationController");
 
 // Make sure the function is properly imported and defined
 router.post("/leave", getLeaveOptimization);
