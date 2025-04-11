@@ -1,10 +1,10 @@
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const { ImageAnnotatorClient } = require("@google-cloud/vision");
-const Timetable = require("../models/Timetable");
-const AcademicCalendar = require("../models/AcademicCalendar");
-const Syllabus = require("../models/Syllabus");
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { ImageAnnotatorClient } from "@google-cloud/vision";
+import Timetable from "../models/Timetable.js";
+import AcademicCalendar from "../models/AcademicCalendar.js";
+import Syllabus from "../models/Syllabus.js";
 
 // Initialize Google Vision client with explicit credentials
 const visionClient = new ImageAnnotatorClient({

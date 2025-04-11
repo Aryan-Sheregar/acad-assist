@@ -1,11 +1,13 @@
-require("dotenv").config({ path: "../.env" });
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-const userRoutes = require("./routes/userRoutes");
-const fileRoutes = require("./routes/fileRoutes");
-const recommendationRoutes = require("./routes/recommendationRoutes");
-const optimizationRoutes = require("./routes/optimizationRoutes");
+import dotenv from "dotenv";
+dotenv.config({ path: "../.env" });
+
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import userRoutes from "./routes/userRoutes.js";
+import fileRoutes from "./routes/fileRoutes.js";
+import recommendationRoutes from "./routes/recommendationRoutes.js";
+import optimizationRoutes from "./routes/optimizationRoutes.js";
 
 // Debug environment variables
 console.log("PORT:", process.env.PORT);

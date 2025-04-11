@@ -1,5 +1,5 @@
 // models/AcademicCalendar.js
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const calendarEntrySchema = new mongoose.Schema(
   {

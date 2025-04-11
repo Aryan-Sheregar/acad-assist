@@ -1,5 +1,5 @@
 // server/controllers/optimizationController.js
-const leaveOptimizationService = require("../services/leaveOptimizationService");
+import leaveOptimizationService from "../services/leaveOptimizationService.js";
 
 exports.getLeaveOptimization = async (req, res) => {
   try {
