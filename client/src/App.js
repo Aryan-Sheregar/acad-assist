@@ -22,6 +22,7 @@ function App() {
     endDate: "",
   });
   const [message, setMessage] = useState("");
+  const [emailId, setEmailId] = useState("");
 
   // References to file inputs
   const timetableInputRef = useRef(null);
@@ -195,6 +196,27 @@ function App() {
     } catch (error) {
       console.error("Error:", error);
       setMessage("Error: " + (error.response?.data.error || error.message));
+    }
+  };
+
+  const sendSuggestionsViaEmail = async () => {
+    if (!userData.userId || !emailId) {
+      setMessage("Please provide both User ID and email address");
+      return;
+    }
+    try {
+      const res = await axios.post(
+        "http://localhost:5001/api/optimization/leave/email",
+        {
+          userId: userData.userId,
+          email: emailId,
+        }
+      );
+      setMessage(res.data.message);
+    } catch (err) {
+      setMessage(
+        "Error sending email: " + (err.response?.data.error || err.message)
+      );
     }
   };
 
@@ -404,6 +426,28 @@ function App() {
               </ul>
             </div>
           ))}
+          {leaveSuggestions.strategicLeaves?.length > 0 && (
+            <div className="action-buttons">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={emailId}
+                onChange={(e) => setEmailId(e.target.value)}
+                style={{
+                  padding: "12px",
+                  borderRadius: "8px",
+                  marginTop: "10px",
+                  width: "250px",
+                  border: "1px solid #334155",
+                  backgroundColor: "#0f172a",
+                  color: "#f8fafc",
+                }}
+              />
+              <button className="button" onClick={sendSuggestionsViaEmail}>
+                Email Me the Suggestions
+              </button>
+            </div>
+          )}
 
           {/* Subject-wise Attendance Insights */}
           {leaveSuggestions.attendanceInfo.subjectWise && (
